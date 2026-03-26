@@ -186,6 +186,46 @@ hr{border:none;border-top:1px solid var(--border);margin:36px 0}
   table{page-break-inside:avoid}
   img{box-shadow:none;border:1px solid #ccc}
 }
+
+/* ── Top mirror-scrollbar for tables & wide images (mobile) ── */
+.tbl-wrap { position: relative; margin: 20px 0; }
+.tbl-hint {
+  display: none;
+  font-size: .7rem;
+  color: var(--teal);
+  letter-spacing: 1px;
+  padding: 0 0 6px;
+  user-select: none;
+  text-align: center;
+}
+.tbl-top-bar {
+  overflow-x: scroll;
+  overflow-y: hidden;
+  height: 10px;
+  background: rgba(16,185,160,.08);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: ew-resize;
+}
+.tbl-top-inner { height: 1px; display: block; }
+.tbl-body {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+/* Styled scrollbar for tbl-top-bar */
+.tbl-top-bar::-webkit-scrollbar { height: 10px; }
+.tbl-top-bar::-webkit-scrollbar-track { background: rgba(16,185,160,.06); border-radius: 6px; }
+.tbl-top-bar::-webkit-scrollbar-thumb { background: var(--teal); border-radius: 6px; opacity: .7; }
+.tbl-body::-webkit-scrollbar { height: 4px; }
+.tbl-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+@media(max-width:768px) {
+  .tbl-hint { display: block; }
+  /* Remove the generic table overflow we set earlier since .tbl-body handles it */
+  table { display: table; overflow-x: visible; min-width: unset; }
+}
+
 </style>
 </head>
 <body>
@@ -4146,6 +4186,67 @@ e.g.: meta_paid-social_us-launch-2026_core-reel_tennis-crossover
   window.addEventListener('resize', () => {
     if (window.innerWidth > 768) closeDrawer();
   });
+})();
+
+// ── Top mirror-scrollbar for every table (mobile) ───────────────────────────
+(function() {
+  function isMobile() { return window.innerWidth <= 768; }
+
+  function wrapTable(tbl) {
+    if (tbl.closest('.tbl-wrap')) return; // already wrapped
+
+    const wrap    = document.createElement('div');  wrap.className = 'tbl-wrap';
+    const hint    = document.createElement('div');  hint.className  = 'tbl-hint';
+    const topBar  = document.createElement('div');  topBar.className = 'tbl-top-bar';
+    const topInner= document.createElement('div');  topInner.className = 'tbl-top-inner';
+    const body    = document.createElement('div');  body.className  = 'tbl-body';
+
+    hint.textContent = '← Scroll horizontally to see full table →';
+    topBar.appendChild(topInner);
+
+    tbl.parentNode.insertBefore(wrap, tbl);
+    wrap.appendChild(hint);
+    wrap.appendChild(topBar);
+    wrap.appendChild(body);
+    body.appendChild(tbl);
+
+    // Set inner width so top bar has a scrollable range
+    function syncWidth() {
+      const w = tbl.scrollWidth;
+      topInner.style.width = w + 'px';
+    }
+    syncWidth();
+    new ResizeObserver(syncWidth).observe(tbl);
+
+    // Sync scroll positions (guard against infinite loops)
+    let busy = false;
+    topBar.addEventListener('scroll', () => {
+      if (busy) return; busy = true;
+      body.scrollLeft = topBar.scrollLeft;
+      busy = false;
+    });
+    body.addEventListener('scroll', () => {
+      if (busy) return; busy = true;
+      topBar.scrollLeft = body.scrollLeft;
+      busy = false;
+    });
+
+    // Fade out hint after first scroll
+    body.addEventListener('scroll', () => { hint.style.opacity = '0'; hint.style.transition = 'opacity .4s'; }, { once: true });
+  }
+
+  function initAll() {
+    if (!isMobile()) return;
+    document.querySelectorAll('table').forEach(wrapTable);
+  }
+
+  // Run on load and on resize to mobile
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
+  window.addEventListener('resize', () => { if (isMobile()) initAll(); }, { passive: true });
 })();
 </script>
 </body>
